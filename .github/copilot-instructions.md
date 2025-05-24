@@ -56,21 +56,51 @@
 - Regularly audit dependencies for security vulnerabilities
 - Document why each dependency is needed
 
-### 7. Project Structure
-- Organize code with clear separation of concerns
-- Use barrel exports (index.ts files) for clean imports
-- Separate types into dedicated type definition files when complex
-- Keep configuration files organized and well-documented
-- Use consistent naming conventions across the project
+### 7. Project Structure and Documentation
+- **Code Organization**: Clear separation of concerns with TypeScript-first approach
+  - `src/` contains only TypeScript source files
+  - `dist/` contains compiled JavaScript (auto-generated, not committed)
+  - `docs/` contains all project documentation
+- **Documentation Standards**:
+  - All documentation lives in the `docs/` directory
+  - Root `README.md` provides quick start and overview
+  - `docs/README.md` serves as documentation index
+  - Update relevant docs when making significant changes
+- **Build Process**:
+  - Use `npm run dev:server` for development (no compilation)
+  - Use `npm run build` for production builds
+  - Never commit compiled `.js` files from `src/`
+  - Reference `docs/BUILD_PROCESS.md` for detailed guidelines
+- **File Organization**:
+  - Use barrel exports (index.ts files) for clean imports
+  - Separate types into dedicated type definition files when complex
+  - Keep configuration files organized and well-documented
+  - Use consistent naming conventions across the project
 
 ## Implementation Workflow
 
 1. **Research Phase**: Use context7 to understand any libraries or frameworks needed
-2. **Type Definition**: Define TypeScript interfaces and types first
-3. **Test Planning**: Write test cases and scenarios
-4. **Implementation**: Code with type safety and error handling
-5. **Testing**: Implement and run comprehensive tests
-6. **Documentation**: Add inline comments and update README if needed
+2. **Documentation Review**: Check `docs/` directory for existing patterns and guidelines
+3. **Type Definition**: Define TypeScript interfaces and types first
+4. **Test Planning**: Write test cases and scenarios
+5. **Implementation**: Code with type safety and error handling
+6. **Testing**: Implement and run comprehensive tests
+7. **Documentation Update**: Update relevant docs in `docs/` directory when making significant changes
+
+## Project-Specific Guidelines
+
+### Build and Development
+- **Development**: Always use `npm run dev:server` for fast iteration
+- **Production**: Use `npm run build && npm run server` for compiled execution
+- **Clean Builds**: Use `npm run clean` to remove all artifacts when in doubt
+- **Type Checking**: Use `npm run typecheck` for validation without compilation
+
+### Documentation Maintenance
+- **Location**: All documentation lives in `docs/` directory
+- **Structure**: Organized by purpose (technical, user guides, planning)
+- **Cross-References**: Link between related documentation files
+- **Updates**: Keep documentation current with code changes
+- **Quick Reference**: Use root `README.md` for essential information only
 
 ## Example Patterns
 
@@ -112,8 +142,20 @@ describe('FeatureName', () => {
 });
 ```
 
+### Documentation Pattern
+```typescript
+// When creating or updating documentation:
+// 1. Place in appropriate docs/ subdirectory
+// 2. Update docs/README.md index if adding new files
+// 3. Cross-reference related documentation
+// 4. Keep root README.md focused on quick start only
+```
+
 ## Remember
 - Context7 MCP server is your primary source for library information
 - TypeScript strict mode is non-negotiable
 - Tests are not optional - they are part of the definition of done
 - Quality over speed - take time to research and implement properly
+- All documentation goes in `docs/` directory - keep root directory clean
+- Use development scripts (`npm run dev:server`) for fast iteration
+- Follow the build process documented in `docs/BUILD_PROCESS.md`
