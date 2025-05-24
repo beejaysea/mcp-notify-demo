@@ -12,8 +12,8 @@ npm install
 # Run server in development mode (fast, no compilation)
 npm run dev:server
 
-# Run with a demo client
-npm run demo
+# Run client test in development mode (fast, no compilation)
+npm run dev:client
 ```
 
 ### Production
