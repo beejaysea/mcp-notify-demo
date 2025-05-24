@@ -1,0 +1,32 @@
+name: Run Tests on Merge
+
+# Trigger the workflow on push events to the main branch
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    # Use Ubuntu as the operating system for running the workflow
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Check out the repository code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      # Set up Node.js environment
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      # Install project dependencies
+      - name: Install dependencies
+        run: npm install
+      
+      # Run the test suite
+      - name: Run test suite
+        run: npm run test:working
