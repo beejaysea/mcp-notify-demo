@@ -1,32 +1,33 @@
 /**
  * MCP Client implementation with notification and sampling handling
+ * Fixed to follow proper MCP TypeScript SDK patterns
  */
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
+  CallToolRequest,
+  CallToolResultSchema,
+  ListToolsRequest,
+  ListToolsResultSchema,
+  CreateMessageRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import { CliArgs } from '../shared/config.js';
-import { CLIENT_INFO, TOOL_NAMES, NOTIFICATION_METHODS, SAMPLING_METHODS } from '../shared/constants.js';
-import { NotificationHandler } from './handlers/notificationHandler.js';
-import { SamplingHandler } from './handlers/samplingHandler.js';
-import { Display } from './ui/display.js';
+import { ExecutionParams } from '../shared/config';
+import { CLIENT_INFO, TOOL_NAMES } from '../shared/constants';
+import { Display } from './ui/display';
 
 export class McpNotifyClient {
   private client: Client;
   private transport: StdioClientTransport | null = null;
-  private notificationHandler: NotificationHandler;
-  private samplingHandler: SamplingHandler;
   private display: Display;
+  private notificationCount: Record<string, number> = {};
+  private samplingCount = 0;
+  private samplingResponses: string[] = [];
 
-  constructor(enableColors = true, showTimestamps = true) {
+  constructor(enableColors = true) {
     this.display = new Display(enableColors);
-    this.notificationHandler = new NotificationHandler(enableColors, showTimestamps);
-    this.samplingHandler = new SamplingHandler(enableColors);
 
-    // Initialize MCP client with sampling capability
+    // Initialize MCP client with sampling capability - following SDK patterns
     this.client = new Client(
       {
         name: CLIENT_INFO.NAME,
@@ -34,7 +35,7 @@ export class McpNotifyClient {
       },
       {
         capabilities: {
-          sampling: {},
+          sampling: {}, // Enable sampling capability
         },
       }
     );
@@ -43,37 +44,85 @@ export class McpNotifyClient {
   }
 
   /**
-   * Set up client event handlers
+   * Set up client event handlers following SDK patterns
    */
   private setupEventHandlers(): void {
-    // Handle notifications from server
-    this.client.setNotificationHandler(
-      NOTIFICATION_METHODS.PROGRESS_UPDATE,
-      (params) => this.notificationHandler.handleNotification(NOTIFICATION_METHODS.PROGRESS_UPDATE, params as any)
-    );
-
-    this.client.setNotificationHandler(
-      NOTIFICATION_METHODS.STATUS_UPDATE,
-      (params) => this.notificationHandler.handleNotification(NOTIFICATION_METHODS.STATUS_UPDATE, params as any)
-    );
-
-    this.client.setNotificationHandler(
-      NOTIFICATION_METHODS.ERROR_UPDATE,
-      (params) => this.notificationHandler.handleNotification(NOTIFICATION_METHODS.ERROR_UPDATE, params as any)
-    );
-
-    this.client.setNotificationHandler(
-      NOTIFICATION_METHODS.COMPLETION_UPDATE,
-      (params) => this.notificationHandler.handleNotification(NOTIFICATION_METHODS.COMPLETION_UPDATE, params as any)
-    );
+    // Handle custom progress notifications from server using fallback handler
+    this.client.fallbackNotificationHandler = async (notification) => {
+      if (notification.method.startsWith('notifications/')) {
+        this.handleCustomNotification(notification);
+      }
+    };
 
     // Handle sampling requests from server
-    this.client.setRequestHandler(
-      SAMPLING_METHODS.CREATE_MESSAGE,
-      async (request) => {
-        return await this.samplingHandler.handleSamplingRequest(request);
+    this.client.setRequestHandler(CreateMessageRequestSchema, async (request) => {
+      return await this.handleSamplingRequest(request);
+    });
+
+    // Handle client errors
+    this.client.onerror = (error) => {
+      this.display.showError('MCP Client Error', error);
+    };
+  }
+
+  /**
+   * Handle custom notifications from server (progress, status, etc.)
+   */
+  private handleCustomNotification(notification: any): void {
+    console.log('Received notification:', JSON.stringify(notification, null, 2));
+    
+    const type = notification.method.replace('notifications/', '');
+    this.notificationCount[type] = (this.notificationCount[type] || 0) + 1;
+    
+    const params = notification.params || {};
+    const timestamp = params.timestamp || new Date().toISOString();
+    const message = params.message || 'No message';
+    const level = params.type || 'info';
+    
+    this.display.showNotification(level, message, { type, timestamp, taskId: params.taskId });
+    
+    // Show progress information if available
+    if (params.progress !== undefined && params.step !== undefined) {
+      // Use step and calculate total from progress percentage
+      const currentStep = params.step;
+      const totalSteps = Math.round(currentStep / (params.progress / 100));
+      this.display.showProgress(currentStep, totalSteps, message);
+    }
+  }
+
+  /**
+   * Handle sampling requests from server - following SDK patterns
+   */
+  private async handleSamplingRequest(request: any): Promise<any> {
+    this.samplingCount++;
+    
+    const messages = request.params.messages || [];
+    const maxTokens = request.params.maxTokens || 100;
+    
+    // Extract the content to echo back
+    let content = 'No content to process';
+    if (messages.length > 0 && messages[0].content) {
+      if (typeof messages[0].content === 'string') {
+        content = messages[0].content;
+      } else if (messages[0].content.text) {
+        content = messages[0].content.text;
       }
-    );
+    }
+    
+    // Simple echo response - in a real implementation, this would call an LLM
+    const response = `Echo response #${this.samplingCount}: ${content}`;
+    this.samplingResponses.push(response);
+    
+    this.display.showSamplingRequest({ messages, maxTokens });
+    this.display.showSamplingResponse({ message: { role: 'assistant', content: response }, stopReason: 'complete' });
+    
+    return {
+      role: 'assistant',
+      content: {
+        type: 'text',
+        text: response,
+      },
+    };
   }
 
   /**
@@ -99,10 +148,12 @@ export class McpNotifyClient {
    */
   async listTools(): Promise<any> {
     try {
-      const response = await this.client.request(
-        { method: 'tools/list' },
-        ListToolsRequestSchema
-      );
+      const request: ListToolsRequest = {
+        method: 'tools/list',
+        params: {}
+      };
+      
+      const response = await this.client.request(request, ListToolsResultSchema);
       return response.tools;
     } catch (error) {
       this.display.showError('Failed to list tools', error instanceof Error ? error : undefined);
@@ -113,27 +164,25 @@ export class McpNotifyClient {
   /**
    * Execute the long-running process
    */
-  async executeLongRunningProcess(args: CliArgs): Promise<any> {
+  async executeLongRunningProcess(args: ExecutionParams): Promise<any> {
     try {
       this.display.showExecutionParams(args);
       this.display.showExecutionStart();
 
-      const response = await this.client.request(
-        {
-          method: 'tools/call',
-          params: {
-            name: TOOL_NAMES.EXECUTE_LONG_PROCESS,
-            arguments: {
-              steps: args.steps,
-              notificationInterval: args.interval,
-              delayMs: args.delay,
-              enableSampling: args.sampling,
-            },
+      const request: CallToolRequest = {
+        method: 'tools/call',
+        params: {
+          name: TOOL_NAMES.EXECUTE_LONG_PROCESS,
+          arguments: {
+            steps: args.steps,
+            notificationInterval: args.interval,
+            delayMs: args.delay,
+            enableSampling: args.sampling,
           },
         },
-        CallToolRequestSchema
-      );
+      };
 
+      const response = await this.client.request(request, CallToolResultSchema);
       return response;
     } catch (error) {
       this.display.showError('Failed to execute long-running process', error instanceof Error ? error : undefined);
@@ -156,14 +205,21 @@ export class McpNotifyClient {
    * Get notification statistics
    */
   getNotificationStatistics(): Record<string, number> {
-    return this.notificationHandler.getStatistics();
+    return { ...this.notificationCount };
   }
 
   /**
    * Get sampling statistics
    */
   getSamplingStatistics(): { totalRequests: number; averageResponseLength: number } {
-    return this.samplingHandler.getStatistics();
+    const averageLength = this.samplingResponses.length > 0 
+      ? this.samplingResponses.reduce((sum, resp) => sum + resp.length, 0) / this.samplingResponses.length
+      : 0;
+      
+    return {
+      totalRequests: this.samplingCount,
+      averageResponseLength: Math.round(averageLength),
+    };
   }
 
   /**

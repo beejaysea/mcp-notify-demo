@@ -37,3 +37,14 @@ export const CliArgsSchema = z.object({
 });
 
 export type CliArgs = z.infer<typeof CliArgsSchema>;
+
+// Execution parameters schema (subset of CliArgs for tool execution)
+export const ExecutionParamsSchema = z.object({
+  steps: z.number().min(1).max(1000).default(5),
+  interval: z.number().min(1).default(1),
+  delay: z.number().min(100).max(10000).default(1000),
+  sampling: z.boolean().default(true),
+  verbose: z.boolean().default(false),
+});
+
+export type ExecutionParams = z.infer<typeof ExecutionParamsSchema>;

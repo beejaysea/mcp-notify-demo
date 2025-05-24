@@ -2,7 +2,7 @@
  * CLI display utilities for the MCP client
  */
 
-import { CliArgs } from '../../shared/config.js';
+import { ExecutionParams } from '../../shared/config';
 
 export class Display {
   private enableColors: boolean;
@@ -41,7 +41,7 @@ export class Display {
   /**
    * Display tool execution parameters
    */
-  showExecutionParams(args: CliArgs): void {
+  showExecutionParams(args: ExecutionParams): void {
     const color = this.enableColors ? '\x1b[34m' : ''; // Blue
     const reset = this.enableColors ? '\x1b[0m' : '';
     
@@ -164,6 +164,110 @@ export class Display {
     const reset = this.enableColors ? '\x1b[0m' : '';
     
     console.log(`${color}${'─'.repeat(50)}${reset}`);
+  }
+
+  /**
+   * Display a notification message
+   */
+  showNotification(level: string, message: string, data?: any): void {
+    const timestamp = new Date().toISOString().slice(11, 23); // HH:MM:SS.mmm
+    const color = this.getLogLevelColor(level);
+    const reset = this.enableColors ? '\x1b[0m' : '';
+    
+    console.log(`${color}[${timestamp}] [${level.toUpperCase()}]${reset} ${message}`);
+    
+    if (data && typeof data === 'object') {
+      const dataColor = this.enableColors ? '\x1b[90m' : ''; // Gray
+      console.log(`${dataColor}  Data: ${JSON.stringify(data, null, 2)}${reset}`);
+    }
+  }
+
+  /**
+   * Display progress information
+   */
+  showProgress(current: number, total: number, message?: string): void {
+    const percentage = Math.round((current / total) * 100);
+    const color = this.enableColors ? '\x1b[34m' : ''; // Blue
+    const reset = this.enableColors ? '\x1b[0m' : '';
+    const progressColor = this.enableColors ? '\x1b[36m' : ''; // Cyan
+    
+    const progressBar = this.createProgressBar(percentage);
+    const timestamp = new Date().toISOString().slice(11, 23);
+    
+    console.log(`${color}[${timestamp}] [PROGRESS]${reset} ${progressBar} ${percentage}% (${current}/${total})`);
+    
+    if (message) {
+      console.log(`${progressColor}  ${message}${reset}`);
+    }
+  }
+
+  /**
+   * Display sampling request information
+   */
+  showSamplingRequest(request: any): void {
+    const timestamp = new Date().toISOString().slice(11, 23);
+    const color = this.enableColors ? '\x1b[35m' : ''; // Magenta
+    const reset = this.enableColors ? '\x1b[0m' : '';
+    
+    console.log(`${color}[${timestamp}] [SAMPLING REQUEST]${reset}`);
+    
+    if (request.messages && Array.isArray(request.messages)) {
+      request.messages.forEach((msg: any, index: number) => {
+        const roleColor = this.enableColors ? '\x1b[33m' : ''; // Yellow
+        console.log(`${roleColor}  Message ${index + 1} (${msg.role}):${reset} ${msg.content?.text || msg.content}`);
+      });
+    }
+    
+    if (request.maxTokens) {
+      console.log(`${color}  Max Tokens: ${request.maxTokens}${reset}`);
+    }
+  }
+
+  /**
+   * Display sampling response information
+   */
+  showSamplingResponse(response: any): void {
+    const timestamp = new Date().toISOString().slice(11, 23);
+    const color = this.enableColors ? '\x1b[35m' : ''; // Magenta
+    const reset = this.enableColors ? '\x1b[0m' : '';
+    
+    console.log(`${color}[${timestamp}] [SAMPLING RESPONSE]${reset}`);
+    
+    if (response.message) {
+      const roleColor = this.enableColors ? '\x1b[33m' : ''; // Yellow
+      console.log(`${roleColor}  Response (${response.message.role}):${reset} ${response.message.content?.text || response.message.content}`);
+    }
+    
+    if (response.stopReason) {
+      console.log(`${color}  Stop Reason: ${response.stopReason}${reset}`);
+    }
+  }
+
+  /**
+   * Get color for log level
+   */
+  private getLogLevelColor(level: string): string {
+    if (!this.enableColors) return '';
+    
+    switch (level.toLowerCase()) {
+      case 'error': return '\x1b[31m'; // Red
+      case 'warn': case 'warning': return '\x1b[33m'; // Yellow
+      case 'info': return '\x1b[32m'; // Green
+      case 'debug': return '\x1b[90m'; // Gray
+      default: return '\x1b[37m'; // White
+    }
+  }
+
+  /**
+   * Create a progress bar string
+   */
+  private createProgressBar(percentage: number, width: number = 20): string {
+    const filled = Math.round((percentage / 100) * width);
+    const empty = width - filled;
+    const fillChar = this.enableColors ? '█' : '=';
+    const emptyChar = this.enableColors ? '░' : '-';
+    
+    return `[${fillChar.repeat(filled)}${emptyChar.repeat(empty)}]`;
   }
 
   /**

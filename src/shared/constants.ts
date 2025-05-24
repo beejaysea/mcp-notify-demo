@@ -4,7 +4,7 @@
 
 // Tool names
 export const TOOL_NAMES = {
-  EXECUTE_LONG_PROCESS: 'execute-long-process',
+  EXECUTE_LONG_PROCESS: 'long-running-task',
 } as const;
 
 // Notification methods (custom JSON-RPC methods)

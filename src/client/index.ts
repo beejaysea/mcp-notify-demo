@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 import { spawn } from 'child_process';
-import { McpNotifyClient } from './client.js';
-import { CliArgsSchema } from '../shared/config.js';
-import { Display } from './ui/display.js';
+import { McpNotifyClient } from './client';
+import { CliArgsSchema } from '../shared/config';
+import { Display } from './ui/display';
 
 // Create display instance
 const display = new Display();
@@ -11,7 +11,7 @@ const display = new Display();
 /**
  * Parse command line arguments and validate them
  */
-function parseCliArgs(): { serverPath: string; toolName: string; steps?: number; delay?: number; interval?: number } {
+function parseCliArgs(): { serverPath: string; toolName: string; steps?: number; delay?: number; interval?: number; sampling?: boolean; verbose?: boolean } {
   const args = process.argv.slice(2);
   
   // Default values
@@ -20,6 +20,8 @@ function parseCliArgs(): { serverPath: string; toolName: string; steps?: number;
   let steps: number | undefined;
   let delay: number | undefined;
   let interval: number | undefined;
+  let sampling: boolean | undefined;
+  let verbose: boolean | undefined;
   
   // Parse arguments
   for (let i = 0; i < args.length; i++) {
@@ -43,6 +45,12 @@ function parseCliArgs(): { serverPath: string; toolName: string; steps?: number;
       case '--interval':
         interval = parseInt(args[++i], 10);
         break;
+      case '--sampling':
+        sampling = args[++i].toLowerCase() === 'true';
+        break;
+      case '--verbose':
+        verbose = args[++i].toLowerCase() === 'true';
+        break;
       case '--help':
       case '-h':
         showHelp();
@@ -62,15 +70,17 @@ function parseCliArgs(): { serverPath: string; toolName: string; steps?: number;
       steps,
       delay,
       interval,
-      sampling: true,
-      verbose: false
+      sampling: sampling ?? true,
+      verbose: verbose ?? false
     });
     return {
       serverPath: parsed.serverPath,
       toolName: parsed.toolName,
       steps: parsed.steps,
       delay: parsed.delay,
-      interval: parsed.interval
+      interval: parsed.interval,
+      sampling: parsed.sampling,
+      verbose: parsed.verbose
     };
   } catch (error) {
     console.error('Invalid arguments:');
@@ -161,19 +171,24 @@ async function main(): Promise<void> {
     // Connect to the server using the command
     await client.connect('npx', ['ts-node', args.serverPath]);
     
-    // Create CliArgs object for execution
-    const cliArgs = {
+    // Create ExecutionParams object for execution
+    const executionParams = {
       steps: args.steps ?? 5,
-      interval: args.interval ?? 500,
+      interval: args.interval ?? 1,
       delay: args.delay ?? 1000,
-      sampling: true,
-      verbose: false
+      sampling: args.sampling ?? true,
+      verbose: args.verbose ?? false
     };
     
     console.log(`Executing tool: ${args.toolName}`);
     display.showSeparator();
     
-    const result = await client.executeLongRunningProcess(cliArgs);
+    const result = await client.executeLongRunningProcess(executionParams);
+    
+    // Wait for notifications to be received (give the server time to send them)
+    console.log('Waiting for notifications...');
+    const waitTime = (executionParams.steps * executionParams.delay) + 2000; // Total execution time + buffer
+    await new Promise(resolve => setTimeout(resolve, waitTime));
     
     display.showSeparator();
     console.log('Tool execution completed');
