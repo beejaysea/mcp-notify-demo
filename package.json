@@ -18,7 +18,9 @@
     "format": "prettier --write src/**/*.ts",
     "clean": "rm -rf dist && find src -name '*.js' -type f -delete",
     "typecheck": "tsc --noEmit",
-    "start": "npm run server"
+    "start": "npm run server",
+    "inspect:dev": "npx @modelcontextprotocol/inspector ts-node src/server/index.ts",
+    "inspect:prod": "npx @modelcontextprotocol/inspector node dist/server/index.js"
   },
   "keywords": [
     "mcp",
