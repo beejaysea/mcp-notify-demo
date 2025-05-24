@@ -192,20 +192,56 @@ async function startLongRunningTask(taskId: string, config: z.infer<typeof LongR
 
         // Request sampling/feedback at intervals
         if (config.enableSampling && i % config.notificationInterval === 0) {
-          server.notification({
-            method: "notifications/sampling",
-            params: {
-              taskId,
-              type: "sampling_request",
-              message: `Please provide feedback on progress so far (step ${i}/${config.steps})`,
-              data: {
-                currentStep: i,
-                totalSteps: config.steps,
-                progress,
+          try {
+            // Send a sampling request to the client using the built-in createMessage method
+            // This method properly formats the JSON-RPC request
+            const samplingResponse = await server.createMessage({
+              messages: [
+                {
+                  role: "user" as const,
+                  content: {
+                    type: "text" as const,
+                    text: `Please provide feedback on progress so far. We are at step ${i} of ${config.steps} (${progress.toFixed(1)}% complete). How should we proceed?`,
+                  },
+                },
+              ],
+              systemPrompt: "You are a helpful assistant monitoring a long-running task. Provide brief, encouraging feedback.",
+              maxTokens: 100,
+              temperature: 0.7,
+            });
+            
+            // Extract response content properly
+            let responseText = 'No response';
+            if (samplingResponse && samplingResponse.content) {
+              if (samplingResponse.content.type === 'text') {
+                responseText = samplingResponse.content.text;
+              }
+            }
+            
+            // Send a notification with the sampling response
+            server.notification({
+              method: "notifications/sampling_response",
+              params: {
+                taskId,
+                type: "sampling_response",
+                message: `Sampling response received: ${responseText}`,
+                step: i,
+                timestamp: new Date().toISOString(),
               },
-              timestamp: new Date().toISOString(),
-            },
-          });
+            });
+          } catch (error) {
+            // If sampling fails (e.g., client doesn't support it), send a notification about it
+            server.notification({
+              method: "notifications/sampling_error",
+              params: {
+                taskId,
+                type: "sampling_error",
+                message: `Sampling request failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                step: i,
+                timestamp: new Date().toISOString(),
+              },
+            });
+          }
         }
       }
 

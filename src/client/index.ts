@@ -15,8 +15,8 @@ function parseCliArgs(): { serverPath: string; toolName: string; steps?: number;
   const args = process.argv.slice(2);
   
   // Default values
-  let serverPath = 'src/server/index.ts';
-  let toolName = 'long-running-process';
+  let serverPath = 'src/server/index-improved.ts';
+  let toolName = 'start_long_running_task';
   let steps: number | undefined;
   let delay: number | undefined;
   let interval: number | undefined;
@@ -46,10 +46,10 @@ function parseCliArgs(): { serverPath: string; toolName: string; steps?: number;
         interval = parseInt(args[++i], 10);
         break;
       case '--sampling':
-        sampling = args[++i].toLowerCase() === 'true';
+        sampling = true;
         break;
       case '--verbose':
-        verbose = args[++i].toLowerCase() === 'true';
+        verbose = true;
         break;
       case '--help':
       case '-h':

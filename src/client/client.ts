@@ -47,20 +47,30 @@ export class McpNotifyClient {
    * Set up client event handlers following SDK patterns
    */
   private setupEventHandlers(): void {
-    // Handle custom progress notifications from server using fallback handler
+    // Handle ALL notifications through fallback handler to avoid schema validation issues
     this.client.fallbackNotificationHandler = async (notification) => {
+      // Handle our custom notifications
       if (notification.method.startsWith('notifications/')) {
         this.handleCustomNotification(notification);
+      } else {
+        // Log unhandled notifications for debugging
+        console.log('Unhandled notification method:', notification.method);
       }
     };
 
-    // Handle sampling requests from server
+    // Handle sampling requests from server - proper MCP sampling pattern
     this.client.setRequestHandler(CreateMessageRequestSchema, async (request) => {
       return await this.handleSamplingRequest(request);
     });
 
-    // Handle client errors
+    // Handle client errors - but filter out schema validation errors for notifications
     this.client.onerror = (error) => {
+      const errorMessage = error.message || error.toString();
+      if (errorMessage.includes('progressToken') || errorMessage.includes('notification handler')) {
+        // Ignore schema validation errors for custom notifications
+        console.log('Ignoring notification schema validation error');
+        return;
+      }
       this.display.showError('MCP Client Error', error);
     };
   }
@@ -76,30 +86,53 @@ export class McpNotifyClient {
     
     const params = notification.params || {};
     const timestamp = params.timestamp || new Date().toISOString();
-    const message = params.message || 'No message';
-    const level = params.type || 'info';
     
-    this.display.showNotification(level, message, { type, timestamp, taskId: params.taskId });
+    // Extract message from different possible locations
+    let message = 'No message';
+    let level = 'info';
+    let taskId = undefined;
+    let progressInfo: { current: number; total: number; percentage: number } | undefined = undefined;
+    
+    if (params.data) {
+      // Server sends structured data in params.data
+      message = params.data.message || message;
+      taskId = params.data.taskId;
+      level = params.level || 'info';
+      
+      // Extract progress information if available
+      if (params.data.step !== undefined && params.data.totalSteps !== undefined) {
+        progressInfo = {
+          current: params.data.step,
+          total: params.data.totalSteps,
+          percentage: Math.round((params.data.step / params.data.totalSteps) * 100)
+        };
+      }
+    } else {
+      // Fallback to direct params
+      message = params.message || message;
+      level = params.level || params.type || 'info';
+      taskId = params.taskId;
+    }
+    
+    this.display.showNotification(level, message, { type, timestamp, taskId });
     
     // Show progress information if available
-    if (params.progress !== undefined && params.step !== undefined) {
-      // Use step and calculate total from progress percentage
-      const currentStep = params.step;
-      const totalSteps = Math.round(currentStep / (params.progress / 100));
-      this.display.showProgress(currentStep, totalSteps, message);
+    if (progressInfo) {
+      this.display.showProgress(progressInfo.current, progressInfo.total, message);
     }
   }
 
   /**
-   * Handle sampling requests from server - following SDK patterns
+   * Handle sampling requests from server - following MCP sampling specification
    */
   private async handleSamplingRequest(request: any): Promise<any> {
     this.samplingCount++;
     
     const messages = request.params.messages || [];
     const maxTokens = request.params.maxTokens || 100;
+    const systemPrompt = request.params.systemPrompt || '';
     
-    // Extract the content to echo back
+    // Extract the content from the messages
     let content = 'No content to process';
     if (messages.length > 0 && messages[0].content) {
       if (typeof messages[0].content === 'string') {
@@ -109,19 +142,28 @@ export class McpNotifyClient {
       }
     }
     
+    // Show sampling request in UI
+    this.display.showSamplingRequest({ messages, maxTokens, systemPrompt });
+    
     // Simple echo response - in a real implementation, this would call an LLM
-    const response = `Echo response #${this.samplingCount}: ${content}`;
+    const response = `✨ Feedback #${this.samplingCount}: Looking good! ${content.includes('progress') ? 'Great progress so far!' : 'Keep up the excellent work!'} 🚀`;
     this.samplingResponses.push(response);
     
-    this.display.showSamplingRequest({ messages, maxTokens });
-    this.display.showSamplingResponse({ message: { role: 'assistant', content: response }, stopReason: 'complete' });
+    // Show sampling response in UI
+    this.display.showSamplingResponse({ 
+      message: { role: 'assistant', content: response }, 
+      stopReason: 'complete' 
+    });
     
+    // Return proper MCP sampling response format
     return {
+      model: 'mcp-notify-client-mock', // Required field
       role: 'assistant',
       content: {
         type: 'text',
         text: response,
       },
+      stopReason: 'end_turn', // Optional but good practice
     };
   }
 
