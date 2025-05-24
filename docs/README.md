@@ -18,6 +18,20 @@ This directory contains comprehensive documentation for the MCP Notify Server pr
 - Error handling and reliability improvements
 - Code quality and maintainability features
 
+### [MCP_NOTIFICATION_PATTERNS.md](./MCP_NOTIFICATION_PATTERNS.md)
+**Notification System**
+- MCP notification pattern implementations
+- Progress, completion, and error notifications
+- Client sampling and feedback requests
+- Best practices for notification handling
+
+### [MCP_TOOL_IMPLEMENTATIONS.md](./MCP_TOOL_IMPLEMENTATIONS.md)
+**Tool Implementation Patterns**
+- Tool registration and execution patterns
+- Parameter validation with Zod
+- Error handling and response formatting
+- Task management best practices
+
 ### [README-IMPROVED.md](./README-IMPROVED.md)
 **Enhanced Features & Usage**
 - Detailed feature descriptions

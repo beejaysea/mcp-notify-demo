@@ -89,7 +89,7 @@ src/**/*.d.ts
 
 ## Current Focus
 
-The build currently focuses on the main server implementation (`src/server/index-improved.ts`) which is the stable, production-ready MCP server. Client files are temporarily excluded from the build until their TypeScript issues are resolved.
+The build currently focuses on the main server implementation (`src/server/index.ts`) which is the stable, production-ready MCP server implementation following official MCP patterns. Client files are temporarily excluded from the build until their TypeScript issues are resolved.
 
 ## Troubleshooting
 

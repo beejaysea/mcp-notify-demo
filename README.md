@@ -1,6 +1,6 @@
 # MCP Notify Server
 
-A TypeScript-based Model Context Protocol (MCP) server that demonstrates long-running tasks with real-time progress notifications and user interaction capabilities.
+A TypeScript-based Model Context Protocol (MCP) server that demonstrates long-running tasks with real-time progress notifications and user interaction capabilities. This implementation follows official MCP patterns and best practices.
 
 ## Quick Start
 
@@ -34,6 +34,11 @@ npm start
 - **Task cancellation** support
 - **TypeScript-first** with strict type safety
 - **Comprehensive testing** with Jest
+- **Official Pattern Compliance**: Server structure follows official MCP examples
+- **Consolidated Architecture**: Single, maintainable server implementation  
+- **Automated Schema Generation**: Using `zodToJsonSchema` instead of manual schemas
+- **Enhanced Type Safety**: Full TypeScript integration with strict typing
+- **Proper Error Handling**: Consistent error responses following MCP standards
 
 ## Project Structure
 
@@ -58,8 +63,17 @@ Starts a configurable long-running process that:
 - Requests user feedback/sampling during execution
 - Supports cancellation
 
+**Parameters:**
+- `steps` (number, 1-1000): Number of steps to execute
+- `notificationInterval` (number, default: 1): Send notification every N steps  
+- `delayMs` (number, 100-10000, default: 1000): Delay between steps in milliseconds
+- `enableSampling` (boolean, default: true): Enable sampling requests to client
+
 ### `cancel_task`
 Cancels a running task by its ID.
+
+**Parameters:**
+- `taskId` (string): ID of the task to cancel
 
 ## Documentation
 
@@ -67,6 +81,8 @@ For detailed information, see the [`docs/`](./docs/) directory:
 
 - **[BUILD_PROCESS.md](./docs/BUILD_PROCESS.md)** - Build system and development workflow
 - **[MCP_SERVER_IMPROVEMENTS.md](./docs/MCP_SERVER_IMPROVEMENTS.md)** - Technical implementation details
+- **[MCP_NOTIFICATION_PATTERNS.md](./docs/MCP_NOTIFICATION_PATTERNS.md)** - Notification system patterns
+- **[MCP_TOOL_IMPLEMENTATIONS.md](./docs/MCP_TOOL_IMPLEMENTATIONS.md)** - Tool implementation patterns
 - **[README-IMPROVED.md](./docs/README-IMPROVED.md)** - Enhanced feature documentation
 - **[TASK_COMPLETION_SUMMARY.md](./docs/TASK_COMPLETION_SUMMARY.md)** - Development progress summary
 

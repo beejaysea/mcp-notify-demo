@@ -1,15 +1,23 @@
 # GitHub Copilot Instructions
 
-## Core Development Guidelines
+## Core Development Guid### Dependencies and Package Management
+- Research all dependencies thoroughly before adding to package.json
+- Prefer well-maintained libraries with good TypeScript support
+- Use exact versions for critical dependencies
+- Regularly audit dependencies for security vulnerabilities
+- Document why each dependency is needed
+- Ensure compatibility with the @modelcontextprotocol/sdk package
+- Consider the impact on bundle size and performance
 
 ### 1. Library Research and Documentation
-- **ALWAYS** use the context7 MCP server to look up library documentation before implementing any third-party dependencies
-- Before suggesting or using any external library, use the MCP tools to:
-  - Resolve the library ID with `bb7_resolve-library-id`
-  - Fetch comprehensive documentation with `bb7_get-library-docs`
+- **ALWAYS** thoroughly research library documentation before implementing any third-party dependencies
+- Before suggesting or using any external library:
+  - Verify compatibility with the MCP (Model Context Protocol) server
+  - Review the library's documentation, especially TypeScript support
   - Understand the library's API, best practices, and usage patterns
-- Never assume library APIs or functionality - always verify through context7
-- When suggesting alternatives, research each option thoroughly using context7
+- Never assume library APIs or functionality - always verify through documentation
+- When suggesting alternatives, research each option thoroughly
+- Pay special attention to @modelcontextprotocol/sdk documentation and patterns
 
 ### 2. TypeScript First Approach
 - **ALWAYS** use TypeScript for all code implementations
@@ -43,11 +51,14 @@
 
 ### 5. MCP Server Integration Guidelines
 - When working with MCP (Model Context Protocol) servers:
-  - Always validate server responses
+  - Always validate server responses and tool parameters with Zod schemas
+  - Use zodToJsonSchema for consistent schema generation
+  - Follow official MCP notification patterns for progress updates
   - Implement proper error handling for MCP communications
   - Use TypeScript interfaces to define MCP message types
   - Test MCP integrations with mock servers when possible
-  - Follow MCP specification standards
+  - Follow MCP specification standards and official implementation patterns
+  - Use proper task management for long-running operations
 
 ### 6. Dependencies and Package Management
 - Research all dependencies using context7 before adding to package.json
@@ -79,8 +90,11 @@
 
 ## Implementation Workflow
 
-1. **Research Phase**: Use context7 to understand any libraries or frameworks needed
-2. **Documentation Review**: Check `docs/` directory for existing patterns and guidelines
+1. **Research Phase**: Thoroughly research library documentation before implementing any third-party dependencies
+2. **Documentation Review**: Check `docs/` directory for existing patterns and guidelines:
+   - `docs/MCP_NOTIFICATION_PATTERNS.md` - For notification patterns
+   - `docs/MCP_TOOL_IMPLEMENTATIONS.md` - For tool implementation patterns
+   - `docs/BUILD_PROCESS.md` - For build process guidelines
 3. **Type Definition**: Define TypeScript interfaces and types first
 4. **Test Planning**: Write test cases and scenarios
 5. **Implementation**: Code with type safety and error handling
@@ -104,12 +118,38 @@
 
 ## Example Patterns
 
-### Library Research Pattern
+### MCP Tool Implementation Pattern
 ```typescript
-// Before using any library, research it thoroughly:
-// 1. bb7_resolve-library-id with library name
-// 2. bb7_get-library-docs with resolved ID
-// 3. Understand API and implement with proper types
+// Define tool schema with Zod for validation
+const MyToolSchema = z.object({
+  param1: z.string().describe("Description for param1"),
+  param2: z.number().min(1).max(100).default(10).describe("Description for param2"),
+  param3: z.boolean().default(true).describe("Description for param3"),
+});
+
+// Register tool with proper error handling
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  try {
+    const { name, arguments: args } = request.params;
+    
+    if (name === "my_tool") {
+      const config = MyToolSchema.parse(args);
+      // Tool implementation
+      return {
+        content: [
+          { type: "text", text: "Tool executed successfully" }
+        ]
+      };
+    }
+  } catch (error) {
+    return {
+      content: [
+        { type: "text", text: `Error: ${error instanceof Error ? error.message : String(error)}` }
+      ],
+      isError: true
+    };
+  }
+});
 ```
 
 ### TypeScript Implementation Pattern
@@ -151,8 +191,30 @@ describe('FeatureName', () => {
 // 4. Keep root README.md focused on quick start only
 ```
 
+### MCP Notification Pattern
+```typescript
+// Send a progress notification following MCP patterns
+server.notification({
+  method: "notifications/progress",
+  params: {
+    progressToken: `task-${taskId}-step-${step}`, // Required for MCP schema compliance
+    progress: (step / totalSteps) * 100, // Required for MCP schema compliance
+    taskId,
+    type: "progress",
+    data: {
+      message: `Completed step ${step} of ${totalSteps}`,
+      step,
+      totalSteps,
+      taskId,
+    },
+    level: "info",
+    timestamp: new Date().toISOString(),
+  },
+});
+```
+
 ## Remember
-- Context7 MCP server is your primary source for library information
+- Always follow official MCP SDK patterns and documentation
 - TypeScript strict mode is non-negotiable
 - Tests are not optional - they are part of the definition of done
 - Quality over speed - take time to research and implement properly
