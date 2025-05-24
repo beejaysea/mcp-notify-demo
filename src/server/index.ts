@@ -40,7 +40,6 @@ const server = new Server(
   {
     capabilities: {
       tools: {},
-      logging: {},
     },
   }
 );
@@ -50,45 +49,88 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
       {
-        name: "long-running-task",
-        description: "Execute a long-running task with progress notifications",
-        inputSchema: zodToJsonSchema(LongRunningTaskSchema),
+        name: "start_long_running_task",
+        description: "Starts a long-running task that sends progress notifications and requests user feedback",
+        inputSchema: zodToJsonSchema(LongRunningTaskSchema) as any,
       },
       {
-        name: "cancel-task",
-        description: "Cancel a running task",
-        inputSchema: zodToJsonSchema(CancelTaskSchema),
+        name: "cancel_task",
+        description: "Cancels a running task",
+        inputSchema: zodToJsonSchema(CancelTaskSchema) as any,
       },
     ],
   };
 });
 
-// Tool execution handler - following official pattern
+// Tool execution handler - following official error handling patterns
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params;
-
   try {
+    const { name, arguments: args } = request.params;
+
+    if (!args) {
+      throw new Error(`No arguments provided for tool: ${name}`);
+    }
+
     switch (name) {
-      case "long-running-task": {
-        const validatedArgs = LongRunningTaskSchema.parse(args);
-        return await handleLongRunningTask(validatedArgs);
+      case "start_long_running_task": {
+        const config = LongRunningTaskSchema.parse(args);
+        const taskId = `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Start the long-running task
+        const taskInfo = await startLongRunningTask(taskId, config);
+        runningTasks.set(taskId, taskInfo);
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Started long-running task ${taskId} with ${config.steps} steps`,
+            },
+          ],
+        };
       }
 
-      case "cancel-task": {
-        const validatedArgs = CancelTaskSchema.parse(args);
-        return await handleCancelTask(validatedArgs);
+      case "cancel_task": {
+        const { taskId } = CancelTaskSchema.parse(args);
+        const task = runningTasks.get(taskId);
+        
+        if (task) {
+          task.cancel();
+          task.cancelled = true;
+          runningTasks.delete(taskId);
+          
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Cancelled task ${taskId}`,
+              },
+            ],
+          };
+        } else {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Task ${taskId} not found`,
+              },
+            ],
+            isError: true,
+          };
+        }
       }
 
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
   } catch (error) {
-    // Following official error handling pattern
+    // Official error handling pattern
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       content: [
         {
           type: "text",
-          text: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+          text: `Error: ${errorMessage}`,
         },
       ],
       isError: true,
@@ -96,194 +138,187 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 });
 
-// Long running task handler - consolidated from original separate files
-async function handleLongRunningTask(args: z.infer<typeof LongRunningTaskSchema>) {
-  const taskId = `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+// Long-running task implementation - improved error handling and cleanup
+async function startLongRunningTask(taskId: string, config: z.infer<typeof LongRunningTaskSchema>): Promise<TaskInfo> {
   let cancelled = false;
   let currentStep = 0;
 
   const taskInfo: TaskInfo = {
     cancel: () => {
       cancelled = true;
-      taskInfo.cancelled = true;
     },
     currentStep: 0,
-    totalSteps: args.steps,
+    totalSteps: config.steps,
     cancelled: false,
   };
 
-  runningTasks.set(taskId, taskInfo);
-
-  // Start the long-running process
-  const processTask = async () => {
+  const runTask = async () => {
     try {
-      for (let step = 1; step <= args.steps && !cancelled; step++) {
-        // Update task info
-        currentStep = step;
-        taskInfo.currentStep = step;
+      // Send start notification - following official notification patterns
+      server.notification({
+        method: "notifications/progress",
+        params: {
+          taskId,
+          type: "start",
+          message: `Starting task with ${config.steps} steps`,
+          progress: 0,
+          timestamp: new Date().toISOString(),
+        },
+      });
 
-        // Send progress notification if at interval
-        if (step % args.notificationInterval === 0) {
-          await server.notification({
-            method: "notifications/progress",
-            params: {
-              progress: step / args.steps,
-              taskId,
-              message: `Step ${step}/${args.steps} completed`,
-            },
-          });
-        }
+      for (let i = 1; i <= config.steps && !cancelled; i++) {
+        currentStep = i;
+        taskInfo.currentStep = i;
+        
+        // Wait for step delay
+        await new Promise(resolve => setTimeout(resolve, config.delayMs));
+        
+        if (cancelled) break;
 
-        // Send sampling request if enabled (commenting out for now to avoid schema issues)
-        /*
-        if (args.enableSampling && step % Math.max(1, Math.floor(args.steps / 10)) === 0) {
-          try {
-            await server.request(
-              {
-                method: "sampling/createMessage",
-                params: {
-                  messages: [
-                    {
-                      role: "user",
-                      content: {
-                        type: "text",
-                        text: `Task ${taskId} is at step ${step}/${args.steps}. Should I continue?`,
-                      },
-                    },
-                  ],
-                  systemPrompt: "You are monitoring a long-running task. Respond briefly about whether to continue.",
-                  maxTokens: 100,
-                },
-              },
-              {} // Schema placeholder
-            );
-          } catch (samplingError) {
-            console.error("Sampling request failed:", samplingError);
-          }
-        }
-        */
-
-        // Delay between steps
-        await new Promise((resolve) => setTimeout(resolve, args.delayMs));
-      }
-
-      // Task completed
-      runningTasks.delete(taskId);
-
-      if (cancelled) {
-        await server.notification({
-          method: "notifications/cancelled",
+        const progress = (i / config.steps) * 100;
+        
+        // Send progress notification
+        server.notification({
+          method: "notifications/progress",
           params: {
             taskId,
-            message: `Task ${taskId} was cancelled at step ${currentStep}`,
+            type: "progress",
+            message: `Completed step ${i} of ${config.steps}`,
+            progress,
+            step: i,
+            timestamp: new Date().toISOString(),
+          },
+        });
+
+        // Request sampling/feedback at intervals
+        if (config.enableSampling && i % config.notificationInterval === 0) {
+          try {
+            // Send a sampling request to the client using the built-in createMessage method
+            // This method properly formats the JSON-RPC request
+            const samplingResponse = await server.createMessage({
+              messages: [
+                {
+                  role: "user" as const,
+                  content: {
+                    type: "text" as const,
+                    text: `Please provide feedback on progress so far. We are at step ${i} of ${config.steps} (${progress.toFixed(1)}% complete). How should we proceed?`,
+                  },
+                },
+              ],
+              systemPrompt: "You are a helpful assistant monitoring a long-running task. Provide brief, encouraging feedback.",
+              maxTokens: 100,
+              temperature: 0.7,
+            });
+            
+            // Extract response content properly
+            let responseText = 'No response';
+            if (samplingResponse && samplingResponse.content) {
+              if (samplingResponse.content.type === 'text') {
+                responseText = samplingResponse.content.text;
+              }
+            }
+            
+            // Send a notification with the sampling response
+            server.notification({
+              method: "notifications/sampling_response",
+              params: {
+                taskId,
+                type: "sampling_response",
+                message: `Sampling response received: ${responseText}`,
+                step: i,
+                timestamp: new Date().toISOString(),
+              },
+            });
+          } catch (error) {
+            // If sampling fails (e.g., client doesn't support it), send a notification about it
+            server.notification({
+              method: "notifications/sampling_error",
+              params: {
+                taskId,
+                type: "sampling_error",
+                message: `Sampling request failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                step: i,
+                timestamp: new Date().toISOString(),
+              },
+            });
+          }
+        }
+      }
+
+      if (!cancelled) {
+        // Send completion notification
+        server.notification({
+          method: "notifications/progress",
+          params: {
+            taskId,
+            type: "completion",
+            message: `Task completed successfully - all ${config.steps} steps finished`,
+            progress: 100,
+            timestamp: new Date().toISOString(),
           },
         });
       } else {
-        await server.notification({
-          method: "notifications/message",
+        // Send cancellation notification
+        server.notification({
+          method: "notifications/progress",
           params: {
-            level: "info",
-            logger: "mcp-notify-server",
-            data: {
-              taskId,
-              message: `Task ${taskId} completed successfully`,
-              totalSteps: args.steps,
-            },
+            taskId,
+            type: "cancelled",
+            message: `Task was cancelled at step ${currentStep}`,
+            progress: (currentStep / config.steps) * 100,
+            timestamp: new Date().toISOString(),
           },
         });
       }
     } catch (error) {
-      runningTasks.delete(taskId);
-      await server.notification({
-        method: "notifications/message",
+      // Send error notification
+      server.notification({
+        method: "notifications/progress",
         params: {
-          level: "error",
-          logger: "mcp-notify-server",
-          data: {
-            taskId,
-            error: error instanceof Error ? error.message : "Unknown error",
-          },
+          taskId,
+          type: "error",
+          message: `Task failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          progress: (currentStep / config.steps) * 100,
+          timestamp: new Date().toISOString(),
         },
       });
+    } finally {
+      // Cleanup - following official patterns
+      runningTasks.delete(taskId);
     }
   };
 
-  // Start task asynchronously
-  processTask();
+  // Start the task asynchronously
+  runTask();
 
-  return {
-    content: [
-      {
-        type: "text",
-        text: `Started long-running task with ID: ${taskId}`,
-      },
-    ],
-  };
-}
-
-// Cancel task handler
-async function handleCancelTask(args: z.infer<typeof CancelTaskSchema>) {
-  const task = runningTasks.get(args.taskId);
-
-  if (!task) {
-    return {
-      content: [
-        {
-          type: "text",
-          text: `Task ${args.taskId} not found or already completed`,
-        },
-      ],
-      isError: true,
-    };
-  }
-
-  task.cancel();
-  runningTasks.delete(args.taskId);
-
-  return {
-    content: [
-      {
-        type: "text",
-        text: `Task ${args.taskId} cancelled successfully`,
-      },
-    ],
-  };
+  return taskInfo;
 }
 
 // Server startup - following official pattern
 async function runServer() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("MCP Notify Server running on stdio");
+  console.error("MCP notification server running on stdio");
 }
 
-// Graceful shutdown - following official pattern
+// Cleanup on exit - following official patterns
+const cleanup = async () => {
+  console.error("Cleaning up running tasks...");
+  for (const [, task] of runningTasks.entries()) {
+    task.cancel();
+    task.cancelled = true;
+  }
+  runningTasks.clear();
+};
+
 process.on("SIGINT", async () => {
-  console.error("Shutting down server...");
-  
-  // Cancel all running tasks
-  for (const [, task] of runningTasks) {
-    task.cancel();
-  }
-  runningTasks.clear();
-  
+  await cleanup();
+  await server.close();
   process.exit(0);
 });
 
-process.on("SIGTERM", async () => {
-  console.error("Received SIGTERM, shutting down server...");
-  
-  // Cancel all running tasks
-  for (const [, task] of runningTasks) {
-    task.cancel();
-  }
-  runningTasks.clear();
-  
-  process.exit(0);
-});
-
-// Start server
+// Main execution - following official pattern
 runServer().catch((error) => {
-  console.error("Server error:", error);
+  console.error("Fatal error running server:", error);
   process.exit(1);
 });

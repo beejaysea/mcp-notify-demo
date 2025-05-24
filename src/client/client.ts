@@ -47,14 +47,14 @@ export class McpNotifyClient {
    * Set up client event handlers following SDK patterns
    */
   private setupEventHandlers(): void {
-    // Handle ALL notifications through fallback handler to avoid schema validation issues
+    // Handle custom notifications through fallback handler
     this.client.fallbackNotificationHandler = async (notification) => {
       // Handle our custom notifications
       if (notification.method.startsWith('notifications/')) {
         this.handleCustomNotification(notification);
       } else {
-        // Log unhandled notifications for debugging
-        console.log('Unhandled notification method:', notification.method);
+        // Log unhandled notifications for debugging (but don't show as errors)
+        console.log(`[DEBUG] Unhandled notification method: ${notification.method}`);
       }
     };
 
@@ -63,14 +63,9 @@ export class McpNotifyClient {
       return await this.handleSamplingRequest(request);
     });
 
-    // Handle client errors - but filter out schema validation errors for notifications
+    // Handle client errors with proper filtering
     this.client.onerror = (error) => {
-      const errorMessage = error.message || error.toString();
-      if (errorMessage.includes('progressToken') || errorMessage.includes('notification handler')) {
-        // Ignore schema validation errors for custom notifications
-        console.log('Ignoring notification schema validation error');
-        return;
-      }
+      // Only show actual errors, not schema validation issues for custom notifications
       this.display.showError('MCP Client Error', error);
     };
   }
@@ -79,8 +74,6 @@ export class McpNotifyClient {
    * Handle custom notifications from server (progress, status, etc.)
    */
   private handleCustomNotification(notification: any): void {
-    console.log('Received notification:', JSON.stringify(notification, null, 2));
-    
     const type = notification.method.replace('notifications/', '');
     this.notificationCount[type] = (this.notificationCount[type] || 0) + 1;
     

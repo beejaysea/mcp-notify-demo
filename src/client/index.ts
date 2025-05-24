@@ -15,7 +15,7 @@ function parseCliArgs(): { serverPath: string; toolName: string; steps?: number;
   const args = process.argv.slice(2);
   
   // Default values
-  let serverPath = 'src/server/index-improved.ts';
+  let serverPath = 'src/server/index.ts';
   let toolName = 'start_long_running_task';
   let steps: number | undefined;
   let delay: number | undefined;
