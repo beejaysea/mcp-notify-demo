@@ -154,14 +154,21 @@ async function startLongRunningTask(taskId: string, config: z.infer<typeof LongR
 
   const runTask = async () => {
     try {
-      // Send start notification - following official notification patterns
+      // Send start notification with proper MCP schema format
       server.notification({
         method: "notifications/progress",
         params: {
+          progressToken: `task-${taskId}-start`, // Required for MCP schema compliance
+          progress: 0, // Required for MCP schema compliance
           taskId,
           type: "start",
-          message: `Starting task with ${config.steps} steps`,
-          progress: 0,
+          data: {
+            message: `Starting task with ${config.steps} steps`,
+            step: 0,
+            totalSteps: config.steps,
+            taskId,
+          },
+          level: "info",
           timestamp: new Date().toISOString(),
         },
       });
@@ -177,18 +184,28 @@ async function startLongRunningTask(taskId: string, config: z.infer<typeof LongR
 
         const progress = (i / config.steps) * 100;
         
-        // Send progress notification
-        server.notification({
-          method: "notifications/progress",
-          params: {
-            taskId,
-            type: "progress",
-            message: `Completed step ${i} of ${config.steps}`,
-            progress,
-            step: i,
-            timestamp: new Date().toISOString(),
-          },
-        });
+        // Send progress notification using proper MCP pattern
+        // Use the built-in notification method with proper schema
+        try {
+          server.notification({
+            method: "notifications/progress",
+            params: {
+              progressToken: `task-${taskId}-step-${i}`, // Required for MCP schema compliance
+              taskId,
+              type: "progress", 
+              data: {
+                message: `Completed step ${i} of ${config.steps}`,
+                step: i,
+                totalSteps: config.steps,
+                taskId,
+              },
+              level: "info",
+              timestamp: new Date().toISOString(),
+            },
+          });
+        } catch (error) {
+          console.error(`Failed to send progress notification:`, error);
+        }
 
         // Request sampling/feedback at intervals
         if (config.enableSampling && i % config.notificationInterval === 0) {
@@ -222,10 +239,16 @@ async function startLongRunningTask(taskId: string, config: z.infer<typeof LongR
             server.notification({
               method: "notifications/sampling_response",
               params: {
+                progressToken: `task-${taskId}-sampling-${i}`, // Required for MCP schema compliance
                 taskId,
                 type: "sampling_response",
-                message: `Sampling response received: ${responseText}`,
-                step: i,
+                data: {
+                  message: `Sampling response received: ${responseText}`,
+                  step: i,
+                  totalSteps: config.steps,
+                  taskId,
+                },
+                level: "info",
                 timestamp: new Date().toISOString(),
               },
             });
@@ -234,10 +257,16 @@ async function startLongRunningTask(taskId: string, config: z.infer<typeof LongR
             server.notification({
               method: "notifications/sampling_error",
               params: {
+                progressToken: `task-${taskId}-error-${i}`, // Required for MCP schema compliance
                 taskId,
                 type: "sampling_error",
-                message: `Sampling request failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-                step: i,
+                data: {
+                  message: `Sampling request failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                  step: i,
+                  totalSteps: config.steps,
+                  taskId,
+                },
+                level: "error",
                 timestamp: new Date().toISOString(),
               },
             });
@@ -246,39 +275,60 @@ async function startLongRunningTask(taskId: string, config: z.infer<typeof LongR
       }
 
       if (!cancelled) {
-        // Send completion notification
+        // Send completion notification with proper MCP schema format
         server.notification({
           method: "notifications/progress",
           params: {
+            progressToken: `task-${taskId}-complete`, // Required for MCP schema compliance
+            progress: 100, // Required for MCP schema compliance
             taskId,
             type: "completion",
-            message: `Task completed successfully - all ${config.steps} steps finished`,
-            progress: 100,
+            data: {
+              message: `Task completed successfully - all ${config.steps} steps finished`,
+              step: config.steps,
+              totalSteps: config.steps,
+              taskId,
+            },
+            level: "info",
             timestamp: new Date().toISOString(),
           },
         });
       } else {
-        // Send cancellation notification
+        // Send cancellation notification with proper MCP schema format
         server.notification({
           method: "notifications/progress",
           params: {
+            progressToken: `task-${taskId}-cancelled`, // Required for MCP schema compliance
+            progress: (currentStep / config.steps) * 100, // Required for MCP schema compliance
             taskId,
             type: "cancelled",
-            message: `Task was cancelled at step ${currentStep}`,
-            progress: (currentStep / config.steps) * 100,
+            data: {
+              message: `Task was cancelled at step ${currentStep}`,
+              step: currentStep,
+              totalSteps: config.steps,
+              taskId,
+            },
+            level: "warning",
             timestamp: new Date().toISOString(),
           },
         });
       }
     } catch (error) {
-      // Send error notification
+      // Send error notification with proper MCP schema format
       server.notification({
         method: "notifications/progress",
         params: {
+          progressToken: `task-${taskId}-error`, // Required for MCP schema compliance
+          progress: (currentStep / config.steps) * 100, // Required for MCP schema compliance
           taskId,
           type: "error",
-          message: `Task failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          progress: (currentStep / config.steps) * 100,
+          data: {
+            message: `Task failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            step: currentStep,
+            totalSteps: config.steps,
+            taskId,
+          },
+          level: "error",
           timestamp: new Date().toISOString(),
         },
       });

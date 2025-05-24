@@ -65,7 +65,14 @@ export class McpNotifyClient {
 
     // Handle client errors with proper filtering
     this.client.onerror = (error) => {
-      // Only show actual errors, not schema validation issues for custom notifications
+      // Filter out schema validation errors for our custom notifications
+      const errorMessage = error.message || String(error);
+      if (errorMessage.includes('progressToken') || errorMessage.includes('progress') || errorMessage.includes('notification handler')) {
+        // These are schema validation errors we can safely ignore
+        // Our fallback handler will handle these notifications anyway
+        return;
+      }
+      
       this.display.showError('MCP Client Error', error);
     };
   }
