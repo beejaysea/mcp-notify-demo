@@ -32,6 +32,7 @@ mcp-notify/
 
 ### Development Scripts
 - `npm run dev:server` - Run server directly with ts-node (no compilation)
+- `npm run dev:client` - Run client test directly with ts-node (no compilation)
 - `npm run build:watch` - Watch mode compilation for development
 
 ### Production Scripts
@@ -70,9 +71,10 @@ src/**/*.d.ts
 ## Development Workflow
 
 1. **Clean Start**: `npm run clean` - Remove all compiled artifacts
-2. **Development**: `npm run dev:server` - Run with ts-node for fast iteration
-3. **Build Check**: `npm run build` - Ensure everything compiles correctly
-4. **Production**: `npm run server` - Run the compiled version
+2. **Development**: `npm run dev:server` - Run server with ts-node for fast iteration
+3. **Client Testing**: `npm run dev:client` - Run client with ts-node for testing
+4. **Build Check**: `npm run build` - Ensure everything compiles correctly
+5. **Production**: `npm run server` - Run the compiled version
 
 ## File Management Rules
 
