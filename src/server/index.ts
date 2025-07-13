@@ -6,7 +6,6 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import { z } from "zod";
 
 // Tool schemas - following official patterns
@@ -51,12 +50,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       {
         name: "start_long_running_task",
         description: "Starts a long-running task that sends progress notifications and requests user feedback",
-        inputSchema: zodToJsonSchema(LongRunningTaskSchema) as any,
+        inputSchema: z.toJSONSchema(LongRunningTaskSchema) as any,
       },
       {
         name: "cancel_task",
         description: "Cancels a running task",
-        inputSchema: zodToJsonSchema(CancelTaskSchema) as any,
+        inputSchema: z.toJSONSchema(CancelTaskSchema) as any,
       },
     ],
   };

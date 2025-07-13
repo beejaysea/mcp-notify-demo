@@ -2,7 +2,6 @@ import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals
 // Import server implementation
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { z } from 'zod';
-import { zodToJsonSchema } from 'zod-to-json-schema';
 
 // Mock the SDK
 jest.mock('@modelcontextprotocol/sdk/server/index.js', () => {
@@ -103,7 +102,7 @@ describe('MCP Server Implementation', () => {
       });
       
       // Generate a schema from the definition
-      const schema = zodToJsonSchema(LongRunningTaskSchema);
+      const schema = z.toJSONSchema(LongRunningTaskSchema);
       
       // Verify schema structure
       expect(schema).toHaveProperty('type', 'object');
@@ -113,11 +112,11 @@ describe('MCP Server Implementation', () => {
       expect(schema.properties).toHaveProperty('enableSampling');
       
       // Check constraints
-      expect(schema.properties.steps).toHaveProperty('minimum', 1);
-      expect(schema.properties.steps).toHaveProperty('maximum', 1000);
-      expect(schema.properties.notificationInterval).toHaveProperty('minimum', 1);
-      expect(schema.properties.delayMs).toHaveProperty('minimum', 100);
-      expect(schema.properties.delayMs).toHaveProperty('maximum', 10000);
+      expect(schema.properties?.steps).toHaveProperty('minimum', 1);
+      expect(schema.properties?.steps).toHaveProperty('maximum', 1000);
+      expect(schema.properties?.notificationInterval).toHaveProperty('minimum', 1);
+      expect(schema.properties?.delayMs).toHaveProperty('minimum', 100);
+      expect(schema.properties?.delayMs).toHaveProperty('maximum', 10000);
     });
     
     it('should have valid cancel task schema', () => {
@@ -127,12 +126,12 @@ describe('MCP Server Implementation', () => {
       });
       
       // Generate a schema from the definition
-      const schema = zodToJsonSchema(CancelTaskSchema);
+      const schema = z.toJSONSchema(CancelTaskSchema);
       
       // Verify schema structure
       expect(schema).toHaveProperty('type', 'object');
       expect(schema.properties).toHaveProperty('taskId');
-      expect(schema.properties.taskId).toHaveProperty('type', 'string');
+      expect(schema.properties?.taskId).toHaveProperty('type', 'string');
     });
   });
 

@@ -2,7 +2,6 @@ import { describe, it, expect, jest, beforeAll, afterAll } from '@jest/globals';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { z } from 'zod';
-import { zodToJsonSchema } from 'zod-to-json-schema';
 import { EventEmitter } from 'events';
 
 // Create memory-based communication channel
@@ -117,7 +116,7 @@ describe.skip('Client-Server Integration', () => {
           {
             name: 'test_tool',
             description: 'Test tool for integration tests',
-            inputSchema: zodToJsonSchema(TaskSchema) as any,
+            inputSchema: z.toJSONSchema(TaskSchema) as any,
           }
         ],
       };
