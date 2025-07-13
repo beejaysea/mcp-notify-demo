@@ -32,8 +32,8 @@ describe('Improved MCP Server', () => {
       // Note: Server object doesn't expose name/version directly
     });
 
-    it('should use zodToJsonSchema for consistent schema generation', () => {
-      // This test would verify that we're using zodToJsonSchema
+    it('should use z.toJSONSchema for consistent schema generation', () => {
+      // This test would verify that we're using z.toJSONSchema
       // instead of manually defining JSON schemas
       const toolNames = ['long-running-task', 'cancel-task'];
       expect(toolNames).toContain('long-running-task');
@@ -209,10 +209,10 @@ describe('Improvements Over Original Implementation', () => {
     expect(consolidatedFeatures).toHaveLength(4);
   });
 
-  it('should use zodToJsonSchema instead of manual schemas', () => {
-    // Verify we're using automated schema generation
-    const schemaGeneration = 'zodToJsonSchema';
-    expect(schemaGeneration).toBe('zodToJsonSchema');
+  it('should use z.toJSONSchema instead of manual schemas', () => {
+    // Verify we're using automated schema generation with Zod 4's native method
+    const schemaGeneration = 'z.toJSONSchema';
+    expect(schemaGeneration).toBe('z.toJSONSchema');
   });
 
   it('should follow official error handling patterns', () => {

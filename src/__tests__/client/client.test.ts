@@ -4,11 +4,15 @@ import { ExecutionParams } from '../../shared/config';
 import { TOOL_NAMES } from '../../shared/constants';
 
 // Mock the @modelcontextprotocol/sdk dependencies
+const mockConnect = jest.fn(() => Promise.resolve());
+const mockRequest = jest.fn();
+const mockClose = jest.fn(() => Promise.resolve());
+
 jest.mock('@modelcontextprotocol/sdk/client/index.js', () => {
   return {
     Client: jest.fn().mockImplementation(() => ({
-      connect: jest.fn().mockResolvedValue(undefined),
-      request: jest.fn().mockImplementation((request) => {
+      connect: mockConnect,
+      request: mockRequest.mockImplementation((request: any) => {
         if (request.method === 'tools/list') {
           return Promise.resolve({
             tools: [
@@ -34,7 +38,7 @@ jest.mock('@modelcontextprotocol/sdk/client/index.js', () => {
 jest.mock('@modelcontextprotocol/sdk/client/stdio.js', () => {
   return {
     StdioClientTransport: jest.fn().mockImplementation(() => ({
-      close: jest.fn().mockResolvedValue(undefined)
+      close: mockClose
     }))
   };
 });
@@ -94,7 +98,7 @@ describe('McpNotifyClient', () => {
       // Mock the Client.connect method to throw an error
       const mockClient = require('@modelcontextprotocol/sdk/client/index.js').Client;
       mockClient.mockImplementation(() => ({
-        connect: jest.fn().mockRejectedValue(new Error('Connection failed')),
+        connect: jest.fn(() => Promise.reject(new Error('Connection failed'))),
         request: jest.fn(),
         notification: jest.fn(),
         setRequestHandler: jest.fn(),
@@ -106,6 +110,30 @@ describe('McpNotifyClient', () => {
       
       const display = (client as any).display;
       expect(display.showConnectionStatus).toHaveBeenCalledWith(false);
+      
+      // Restore the working mock
+      mockClient.mockImplementation(() => ({
+        connect: mockConnect,
+        request: mockRequest.mockImplementation((request: any) => {
+          if (request.method === 'tools/list') {
+            return Promise.resolve({
+              tools: [
+                { name: 'start_long_running_task' }
+              ]
+            });
+          }
+          if (request.method === 'tools/call') {
+            return Promise.resolve({
+              content: [{ type: 'text', text: 'Task started' }]
+            });
+          }
+          return Promise.reject(new Error('Unknown request'));
+        }),
+        notification: jest.fn(),
+        fallbackNotificationHandler: null,
+        setRequestHandler: jest.fn(),
+        onerror: null,
+      }));
     });
 
     it('should disconnect from the server', async () => {
@@ -138,10 +166,8 @@ describe('McpNotifyClient', () => {
     });
 
     it('should handle errors when listing tools', async () => {
-      // Mock the request method to throw an error
-      const mockClient = require('@modelcontextprotocol/sdk/client/index.js').Client;
-      const mockClientInstance = mockClient.mock.results[0].value;
-      mockClientInstance.request.mockRejectedValueOnce(new Error('Failed to list tools'));
+      // Temporarily modify the mock request to throw an error
+      (mockRequest as any).mockRejectedValueOnce(new Error('Failed to list tools'));
 
       await expect(client.listTools()).rejects.toThrow();
       
@@ -165,9 +191,7 @@ describe('McpNotifyClient', () => {
       expect(result).toHaveProperty('content');
 
       // Check that the right tool was called
-      const mockClient = require('@modelcontextprotocol/sdk/client/index.js').Client;
-      const mockClientInstance = mockClient.mock.results[0].value;
-      expect(mockClientInstance.request).toHaveBeenCalledWith(
+      expect(mockRequest).toHaveBeenCalledWith(
         expect.objectContaining({
           method: 'tools/call',
           params: expect.objectContaining({
@@ -180,15 +204,13 @@ describe('McpNotifyClient', () => {
             })
           })
         }),
-        expect.anything()
+        expect.anything() // This is the result schema (CallToolResultSchema)
       );
     });
 
     it('should handle errors in long-running process execution', async () => {
       // Mock the request method to throw an error
-      const mockClient = require('@modelcontextprotocol/sdk/client/index.js').Client;
-      const mockClientInstance = mockClient.mock.results[0].value;
-      mockClientInstance.request.mockRejectedValueOnce(new Error('Execution failed'));
+      (mockRequest as any).mockRejectedValueOnce(new Error('Execution failed'));
 
       const params: ExecutionParams = {
         steps: 10,
