@@ -1,19 +1,19 @@
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
 import { Display } from '../../client/ui/display';
 import { ExecutionParams } from '../../shared/config';
 
 describe('Display', () => {
   let display: Display;
-  let consoleLogSpy: jest.SpyInstance;
-  let consoleErrorSpy: jest.SpyInstance;
+  let consoleLogSpy: any;
+  let consoleErrorSpy: any;
   
   beforeEach(() => {
     // Disable colors for deterministic testing
     display = new Display(false);
     
     // Spy on console methods
-    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
-    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
   });
   
   afterEach(() => {
