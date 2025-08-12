@@ -35,17 +35,17 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.16.0",
-    "zod": "^4.0.5"
+    "@modelcontextprotocol/sdk": "^1.17.2",
+    "zod": "^4.0.17"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
-    "@types/node": "^24.1.0",
-    "eslint": "^9.31.0",
+    "@types/node": "^24.2.1",
+    "eslint": "^9.33.0",
     "jest": "^30.0.5",
     "prettier": "^3.6.2",
-    "ts-jest": "^29.4.0",
+    "ts-jest": "^29.4.1",
     "ts-node": "^10.9.2",
-    "typescript": "^5.8.3"
+    "typescript": "^5.9.2"
   }
 }
